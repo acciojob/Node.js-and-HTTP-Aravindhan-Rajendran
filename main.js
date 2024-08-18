@@ -1,44 +1,51 @@
 const http = require('http');
+const querystring = require('querystring');
 
-// Create the HTTP server
 const server = http.createServer((req, res) => {
-  // Set the response header to JSON
   res.setHeader('Content-Type', 'application/json');
 
-  // Extract request details
   const { method, url, headers } = req;
   let body = [];
 
-  // Handle incoming data for POST requests
   req.on('data', (chunk) => {
     body.push(chunk);
   });
 
   req.on('end', () => {
-    // If there's a body, concatenate and parse it
     body = Buffer.concat(body).toString();
 
-    // Create the response object with request details
+    let parsedBody = {};
+    if (headers['content-type'] === 'application/x-www-form-urlencoded') {
+      // Parse URL-encoded data
+      parsedBody = querystring.parse(body);
+    } else if (headers['content-type'] === 'application/json') {
+      // Parse JSON data
+      try {
+        parsedBody = JSON.parse(body);
+      } catch (error) {
+        // Handle JSON parsing errors
+        res.writeHead(400);
+        return res.end(JSON.stringify({ error: 'Invalid JSON' }));
+      }
+    }
+
     const response = {
       method,
       url,
       headers,
-      body: body ? JSON.parse(body) : {}, // Parse body as JSON if not empty
+      body: parsedBody,
     };
 
-    // Send the response with status 200 (OK)
     res.writeHead(200);
     res.end(JSON.stringify(response, null, 2));
   });
 
-  // Handle error in case of JSON parsing issues
   req.on('error', (err) => {
     res.writeHead(400);
-    res.end(JSON.stringify({ error: 'Invalid JSON' }));
+    res.end(JSON.stringify({ error: 'Request error' }));
   });
 });
 
-// Start the server on port 3000
 server.listen(3000, () => {
   console.log('Server is listening on port 3000');
 });
