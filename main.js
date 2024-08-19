@@ -1,53 +1,44 @@
-const http = require('http');
-const querystring = require('querystring');
+const http = require("http");
+const url = require("url");
+const querystring = require("querystring");
 
 const server = http.createServer((req, res) => {
-  res.setHeader('Content-Type', 'application/json');
+  const parsedUrl = url.parse(req.url, true);
+  const method = req.method;
+  const path = parsedUrl.pathname;
+  const query = parsedUrl.query;
 
-  const { method, url, headers } = req;
-  let body = [];
-
-  req.on('data', (chunk) => {
-    body.push(chunk);
+  let body = "";
+  req.on("data", (chunk) => {
+    body += chunk.toString();
   });
 
-  req.on('end', () => {
-    body = Buffer.concat(body).toString();
+  req.on("end", () => {
+    const parsedBody = querystring.parse(body);
 
-    let parsedBody = {};
-    if (headers['content-type'] === 'application/x-www-form-urlencoded') {
-      // Parse URL-encoded data
-      parsedBody = querystring.parse(body);
-    } else if (headers['content-type'] === 'application/json') {
-      // Parse JSON data
-      try {
-        parsedBody = JSON.parse(body);
-      } catch (error) {
-        // Handle JSON parsing errors
-        res.writeHead(400);
-        return res.end(JSON.stringify({ error: 'Invalid JSON' }));
-      }
-    }
-
-    const response = {
+    const responseObj = {
       method,
-      url,
-      headers,
+      path,
+      query,
       body: parsedBody,
     };
 
-    res.writeHead(200);
-    res.end(JSON.stringify(response, null, 2));
-  });
+    if (method !== "POST") {
+      delete responseObj.body;
+    }
 
-  req.on('error', (err) => {
-    res.writeHead(400);
-    res.end(JSON.stringify({ error: 'Request error' }));
+    res.setHeader("Content-Type", "application/json");
+    res.end(JSON.stringify(responseObj));
   });
 });
 
-server.listen(3000, () => {
-  console.log('Server is listening on port 3000');
-});
+/* we just simply export the server object, we donot start the server itself. isme just simplify krre hai */
+
+if (require.main === module) {
+  const PORT = process.env.PORT || 3000;
+  server.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}
 
 module.exports = { server };
